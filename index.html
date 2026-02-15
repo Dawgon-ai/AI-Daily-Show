@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The AI Daily Show</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700;900&display=swap"
+        rel="stylesheet">
+
+    <!-- Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="background-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+    </div>
+
+    <main class="container">
+        <header class="glass-header">
+            <div class="logo">
+                <div class="logo-icon">📺</div>
+                <div>
+                    <div style="display:flex; align-items:center; gap: 10px;">
+                        <h1>THE AI DAILY SHOW</h1>
+                        <span class="on-air">ON AIR</span>
+                    </div>
+                    <p style="font-family: 'Courier Prime', monospace; color: var(--accent-sec); letter-spacing: 2px;">
+                        BROADCASTING LIVE 24/7</p>
+                </div>
+            </div>
+            <div class="controls">
+                <span id="last-updated">Updating...</span>
+                <button id="refresh-btn" class="icon-btn">
+                    <i data-lucide="refresh-cw"></i>
+                </button>
+            </div>
+        </header>
+
+        <nav class="filter-nav">
+            <button class="filter-btn active" data-filter="all">All Channels</button>
+            <button class="filter-btn" data-filter="saved">Recorded</button>
+            <button class="filter-btn" data-filter="theverge">The Verge</button>
+            <button class="filter-btn" data-filter="wired">Wired</button>
+            <button class="filter-btn" data-filter="techcrunch">TechCrunch</button>
+            <button class="filter-btn" data-filter="therundown">The Rundown</button>
+        </nav>
+
+        <div id="articles-grid" class="grid">
+            <div class="loading-state">
+                <i data-lucide="loader" class="spin" style="width: 48px; height: 48px; margin-bottom: 1rem;"></i>
+                <p>Establishing Satellite Connection...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Data (Loaded as a global variable to bypass CORS on file://) -->
+    <script src="data/data.js"></script>
+    <script src="app.js"></script>
+</body>
+
+</html>
