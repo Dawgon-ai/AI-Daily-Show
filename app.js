@@ -4,7 +4,7 @@ lucide.createIcons();
 // Supabase Configuration
 const SUPABASE_URL = 'https://irtvdtwhvoaxhhflerhp.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_1tHVs0poyOY9PcNS9ylTlw_Jk6nlJb2';
-const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 const GRID = document.getElementById('articles-grid');
 const REFRESH_BTN = document.getElementById('refresh-btn');
@@ -32,7 +32,7 @@ let currentArticleId = null;
 
 // --- Auth Logic ---
 async function checkUser() {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await supabaseClient.auth.getUser();
     currentUser = user;
     if (user) {
         LOGIN_BTN.style.display = 'none';
@@ -83,14 +83,14 @@ AUTH_FORM.onsubmit = async (e) => {
 };
 
 LOGOUT_BTN.onclick = async () => {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     checkUser();
 };
 
 // --- Data Loading ---
 async function loadData() {
     try {
-        const { data, error } = await supabase
+        const { data, error } = await supabaseClient
             .from('articles')
             .select('*')
             .order('published_at', { ascending: false });
@@ -155,7 +155,7 @@ document.getElementById('close-sidebar').onclick = () => SIDEBAR.classList.remov
 
 async function loadComments(articleId) {
     COMMENTS_LIST.innerHTML = '<p>Retrieving logs...</p>';
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('comments')
         .select('*, profiles(username)')
         .eq('article_id', articleId)
@@ -183,7 +183,7 @@ SUBMIT_COMMENT.onclick = async () => {
     const content = COMMENT_INPUT.value.trim();
     if (!content) return;
 
-    const { error } = await supabase.from('comments').insert({
+    const { error } = await supabaseClient.from('comments').insert({
         article_id: currentArticleId,
         user_id: currentUser.id,
         content: content
