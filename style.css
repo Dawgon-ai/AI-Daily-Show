@@ -260,14 +260,41 @@ body {
 }
 
 .card-image.placeholder {
-    background: #111;
+    background: linear-gradient(135deg, #0a0a1a 0%, #15152a 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 3rem;
     font-weight: 900;
-    color: #333;
+    color: var(--accent);
     font-family: var(--font-display);
+    position: relative;
+    overflow: hidden;
+}
+
+.card-image.placeholder::after {
+    content: 'UPLINK';
+    position: absolute;
+    bottom: 10px;
+    font-size: 0.6rem;
+    letter-spacing: 4px;
+    color: var(--accent-sec);
+    opacity: 0.5;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        opacity: 0.2;
+    }
+
+    50% {
+        opacity: 0.8;
+    }
+
+    100% {
+        opacity: 0.2;
+    }
 }
 
 .card-content {
