@@ -49,6 +49,13 @@ def get_headers():
         "Referer": "https://www.google.com/"
     }
 
+def generate_ai_image(title, source):
+    # Ensure title is safe for URL
+    clean_title = re.sub(r'[^a-zA-Z0-9\s]', '', title)
+    query = f"{clean_title} AI Tech {source}".replace(" ", "%20")
+    # Pollinations.ai allows dynamic image generation via URL
+    return f"https://image.pollinations.ai/prompt/{query}?width=1024&height=1024&nologo=true&enhance=true"
+
 def fetch_articles(source_key):
     config = SOURCES.get(source_key)
     if not config:
@@ -135,13 +142,19 @@ def fetch_articles(source_key):
                 figure = element.find("figure")
                 if figure:
                     img = figure.find("img")
-                    if img: image_url = img.get("src") or img.get("data-src")
+                    if img: 
+                        image_url = img.get("src") or img.get("data-src") or img.get("data-lazy-src")
+                
+                # TechCrunch sometimes has images in a different container structure
+                if not image_url:
+                    img_container = element.find("div", class_="wp-block-post-featured-image")
+                    if img_container:
+                        img = img_container.find("img")
+                        if img: image_url = img.get("src") or img.get("data-src")
 
-            # 3. Clean up image URL (remove query strings if they mess up display)
-            if image_url and "?" in image_url:
-                # Keep some reasonable ones but remove crop stuff if too complex
-                if "crop=" in image_url or "resize=" in image_url:
-                    pass # Keep them for now as they are often required by the CDN
+            # 3. AI GENERATION FALLBACK
+            if not image_url:
+                image_url = generate_ai_image(title, source_key)
             
             # Build the article object
             article = {

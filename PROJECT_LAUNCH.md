@@ -7,8 +7,8 @@ This project was built from zero to a full social news platform using **Antigrav
 
 ### 🐍 Python: The Scraper Backbone
 Behind the "All Channels" view lies a robust, multi-threaded scraping architecture. We didn't just crawl RSS feeds; we built logic to:
-- **Parse Complex HTML**: Targeted selectors for *The Verge*, *Wired*, *TechCrunch*, and specialized AI newsletters like *The Rundown*.
-- **Robust Image Extraction**: Intelligent fallback logic that scans for og-images, lazy-loaded figures, and high-res variants to ensure every broadcast has a visual impact.
+- **AI Image Generation**: Integrated dynamic fallback logic. When a source (like TechCrunch) fails to provide a visual, the system automatically generates a unique, thematic AI image via `Pollinations.ai` based on the article's context.
+- **Improved TechCrunch Parsing**: Targeted selectors for the latest WP-block-post structures to ensure maximum image extraction.
 - **Auto-Sync to Supabase**: A seamless handover from Python data structures to a PostgreSQL cloud backend with RLS (Row Level Security) safety.
 
 ### 🌐 The "Simple" Interface Power
