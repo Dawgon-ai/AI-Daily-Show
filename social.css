@@ -242,3 +242,26 @@
 .social-indicator:hover {
     color: var(--accent-sec);
 }
+
+/* Responsive Social */
+@media (max-width: 768px) {
+    .social-sidebar {
+        width: 100% !important;
+        right: -100% !important;
+        max-width: none;
+        z-index: 2000;
+    }
+
+    .social-sidebar.active {
+        right: 0 !important;
+    }
+
+    .modal-content {
+        width: 95%;
+        padding: 1.5rem;
+    }
+
+    .auth-tabs {
+        justify-content: center;
+    }
+}
