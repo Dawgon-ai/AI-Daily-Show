@@ -53,12 +53,15 @@ body {
     margin-bottom: 3rem;
     position: relative;
     box-shadow: 0 4px 50px rgba(255, 0, 255, 0.1);
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
 .logo {
     display: flex;
     align-items: center;
     gap: 1.5rem;
+    flex-shrink: 0;
 }
 
 .logo-icon {
@@ -93,6 +96,7 @@ body {
     animation: flicker 2s infinite;
     box-shadow: 0 0 15px #ff0000;
     border: 1px solid white;
+    white-space: nowrap;
 }
 
 @keyframes flicker {
@@ -119,12 +123,15 @@ body {
     display: flex;
     align-items: center;
     gap: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
 }
 
 #last-updated {
     font-size: 1rem;
     color: var(--accent-sec);
     font-family: var(--font-display);
+    white-space: nowrap;
 }
 
 .icon-btn {
@@ -138,6 +145,7 @@ body {
     justify-content: center;
     transition: all 0.2s;
     box-shadow: 0 0 10px var(--accent);
+    flex-shrink: 0;
 }
 
 .icon-btn:hover {
@@ -399,6 +407,79 @@ body {
     color: var(--text-muted);
     font-size: 2rem;
     font-weight: 300;
+}
+
+/* Mobile and Tablet Responsiveness */
+@media (max-width: 1024px) {
+    .container {
+        padding: 1rem;
+    }
+
+    .logo h1 {
+        font-size: 48px;
+    }
+
+    .grid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .glass-header {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 1.5rem;
+        padding: 1.5rem 0;
+    }
+
+    .logo {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .logo h1 {
+        font-size: 32px;
+        letter-spacing: -1px;
+    }
+
+    .controls {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .filter-nav {
+        justify-content: flex-start;
+        padding-bottom: 0.5rem;
+    }
+
+    .filter-btn {
+        padding: 0.4rem 1rem;
+        font-size: 0.8rem;
+    }
+
+    .card-image {
+        height: 160px;
+    }
+
+    .card-title {
+        font-size: 1.2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .logo h1 {
+        font-size: 28px;
+    }
+
+    #last-updated {
+        font-size: 0.8rem;
+    }
+
+    .save-btn {
+        padding: 0.4rem;
+    }
 }
 
 .background-orbs {
