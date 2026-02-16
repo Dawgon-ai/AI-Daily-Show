@@ -65,13 +65,13 @@ AUTH_FORM.onsubmit = async (e) => {
     let result;
     if (isSignUp) {
         const username = document.getElementById('auth-username').value;
-        result = await supabase.auth.signUp({
+        result = await supabaseClient.auth.signUp({
             email,
             password,
             options: { data: { username } }
         });
     } else {
-        result = await supabase.auth.signInWithPassword({ email, password });
+        result = await supabaseClient.auth.signInWithPassword({ email, password });
     }
 
     if (result.error) {
