@@ -6,6 +6,12 @@ import sys
 import datetime
 import uuid
 import re
+import os
+from dotenv import load_dotenv
+from supabase import create_client, Client
+
+# Load environment variables
+load_dotenv()
 
 # Configuration
 SOURCES = {
@@ -26,6 +32,14 @@ SOURCES = {
         "base_url": "https://www.therundown.ai"
     }
 }
+
+# Initialize Supabase
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
+supabase: Client = None
+
+if supabase_url and supabase_key:
+    supabase = create_client(supabase_url, supabase_key)
 
 def get_headers():
     return {
@@ -55,71 +69,81 @@ def fetch_articles(source_key):
     parsed_items = [] # (element, source_specific_type)
 
     if source_key == "theverge":
-        # Strategy 1: specific classes
-        for h2 in soup.find_all("h2"): parsed_items.append(h2.find("a"))
-        # Strategy 2: URL pattern
-        if len(parsed_items) < 5:
-            for a in soup.find_all("a", href=True):
-                 if "/202" in a['href'] or "/ai-" in a['href']: parsed_items.append(a)
+        # Strategy 1: Look for article containers
+        containers = soup.find_all("div", class_="duet--content-cards--content-card")
+        if not containers:
+            # Fallback
+            for h2 in soup.find_all("h2"): parsed_items.append((h2, "heading"))
+        else:
+            for c in containers: parsed_items.append((c, "container"))
 
     elif source_key == "techcrunch":
-        # Strategy 1: generic headings
-        for h2 in soup.find_all("h2"): parsed_items.append(h2.find("a"))
-        # Strategy 2: URL pattern
-        if len(parsed_items) < 5:
-             for a in soup.find_all("a", href=True):
-                 if "/202" in a['href'] and len(a.get_text()) > 20: parsed_items.append(a)
+        # Strategy: Look for loop-item containers
+        containers = soup.find_all("div", class_="wp-block-post") or soup.find_all("li", class_="wp-block-post")
+        if not containers:
+            for h2 in soup.find_all("h2"): parsed_items.append((h2, "heading"))
+        else:
+            for c in containers: parsed_items.append((c, "container"))
 
     elif source_key == "wired":
-        # Strategy 1: class search
-        for div in soup.find_all(class_=re.compile("SummaryItem")): parsed_items.append(div.find("a"))
-        # Strategy 2: Generic
-        if len(parsed_items) < 5:
-            for a in soup.find_all("a", href=True):
-                if "/story/" in a['href']: parsed_items.append(a)
+        # Strategy: SummaryItem class
+        containers = soup.find_all(class_=re.compile("SummaryItem"))
+        for c in containers: parsed_items.append((c, "container"))
 
     elif source_key == "therundown":
         for a in soup.find_all('a', href=True):
-            if "/p/" in a['href']: parsed_items.append(a)
+            if "/p/" in a['href']: parsed_items.append((a, "link"))
 
     # --- Normalization Loop ---
-    for item in parsed_items:
-        if not item: continue
+    for element, el_type in parsed_items:
+        if not element: continue
         try:
-            a = item
-            href = a['href']
+            # Find the anchor tag
+            a = element if el_type == "link" else element.find("a", href=True)
+            if not a: continue
             
-            # Filter out non-article links/comments
-            if "#" in href or "comment" in href or "author" in href: continue
+            href = a['href']
+            # Filter out non-article links
+            if any(x in href for x in ["#", "comment", "author", "/category/", "/tags/"]): continue
 
             # Normalize URL
-            if not href.startswith("http"):
-                full_url = config["base_url"] + href
-            else:
-                full_url = href
-
-            # Title
-            title = a.get_text(strip=True)
-            if not title or len(title) < 15: continue # Increased min length to avoid junk
-            
+            full_url = href if href.startswith("http") else config["base_url"] + href
             if full_url in seen_urls: continue
             seen_urls.add(full_url)
+
+            # Title extraction based on element type
+            title = ""
+            if el_type == "container":
+                t_el = element.find(["h2", "h3"])
+                title = t_el.get_text(strip=True) if t_el else a.get_text(strip=True)
+            else:
+                title = a.get_text(strip=True)
             
-            # --- Generic Image Finder (Robust) ---
+            if not title or len(title) < 15: continue
+
+            # --- Robust Image Finder ---
             image_url = None
-            # 1. Look inside anchor
-            img = a.find("img")
-            if img: 
-                image_url = img.get("src") or img.get("data-src")
             
-            # 2. Look nearby (Parent's other children) if no image found yet
-            if not image_url:
-                parent = a.find_parent("div")
-                if parent:
-                    # Look for any image in this container
-                    img = parent.find("img")
+            # 1. Look for images in the container/element
+            img = element.find("img")
+            if img:
+                # Check different attributes for lazy-loaded images
+                image_url = img.get("src") or img.get("data-src") or img.get("srcset", "").split(" ")[0]
+            
+            # 2. TechCrunch specific meta/fallback
+            if not image_url and source_key == "techcrunch":
+                figure = element.find("figure")
+                if figure:
+                    img = figure.find("img")
                     if img: image_url = img.get("src") or img.get("data-src")
 
+            # 3. Clean up image URL (remove query strings if they mess up display)
+            if image_url and "?" in image_url:
+                # Keep some reasonable ones but remove crop stuff if too complex
+                if "crop=" in image_url or "resize=" in image_url:
+                    pass # Keep them for now as they are often required by the CDN
+            
+            # Build the article object
             article = {
                 "id": str(uuid.uuid4()),
                 "title": title,
@@ -134,13 +158,51 @@ def fetch_articles(source_key):
         except Exception as e:
             continue
 
-    # Quality Check: Sort by length of title? Or just return top results
     return articles[:20]
+
+def sync_to_supabase(articles):
+    if not supabase:
+        sys.stderr.write("Supabase client not initialized. Skipping sync.\n")
+        return
+
+    # Prepare historical match check (to avoid overwriting image_urls if we already have one)
+    for article in articles:
+        try:
+            # Upsert into articles table
+            # We use 'ON CONFLICT (url) DO UPDATE' logic via supabase select/insert if needed
+            # But the 'url' is unique, so we can check existence
+            
+            # Simple Upsert
+            data = {
+                "title": article["title"],
+                "url": article["url"],
+                "source": article["source"],
+                "published_at": article["published_at"],
+                "image_url": article["image_url"],
+                "summary": article["summary"]
+            }
+            
+            # Using upsert with the unique constraint on 'url'
+            # Note: For this to work well, we need to ensure the DB knows 'url' is the conflict target
+            # In Supabase UI/SQL: ALTER TABLE articles ADD CONSTRAINT articles_url_key UNIQUE (url);
+            supabase.table("articles").upsert(data, on_conflict="url").execute()
+            
+        except Exception as e:
+            sys.stderr.write(f"Error syncing to Supabase: {e}\n")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scrape AI newsletters")
     parser.add_argument("--source", required=True, help="Source key")
+    parser.add_argument("--sync", action="store_true", help="Sync to Supabase")
     args = parser.parse_args()
 
+    # All logs to stderr to keep stdout clean for JSON
+    sys.stderr.write(f"Scraping {args.source}...\n")
     results = fetch_articles(args.source)
+    
+    if args.sync:
+        sys.stderr.write(f"Syncing {len(results)} articles from {args.source} to Supabase...\n")
+        sync_to_supabase(results)
+    
+    # Still print results for piping if needed - this MUST be the only thing on stdout
     print(json.dumps(results, indent=2))

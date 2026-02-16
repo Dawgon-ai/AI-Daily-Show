@@ -7,13 +7,14 @@ import store_manager
 import os
 
 # Define Python Path
-PYTHON_EXE = r"C:\Users\User\AppData\Local\Programs\Python\Python312\python.exe"
+PYTHON_EXE = sys.executable
 
 SOURCES = ["theverge", "techcrunch", "wired", "therundown"]
 
 def run_scraper(source):
+    # Added --sync flag to push directly to Supabase
     result = subprocess.run(
-        [PYTHON_EXE, "tools/scraper.py", "--source", source],
+        [PYTHON_EXE, "tools/scraper.py", "--source", source, "--sync"],
         capture_output=True,
         text=True
     )
@@ -22,9 +23,10 @@ def run_scraper(source):
         return []
     
     try:
+        # Since scraper prints only JSON to stdout (logs in stderr), we can parse directly
         return json.loads(result.stdout)
-    except json.JSONDecodeError:
-        sys.stderr.write(f"Error parsing JSON from {source}\n")
+    except json.JSONDecodeError as e:
+        sys.stderr.write(f"Error parsing JSON from {source}: {e}\n")
         return []
 
 def is_recent(article):

@@ -18,6 +18,10 @@
 
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="social.css">
+
+    <!-- Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -44,6 +48,15 @@
                 <button id="refresh-btn" class="icon-btn">
                     <i data-lucide="refresh-cw"></i>
                 </button>
+                <div id="user-controls">
+                    <button id="login-btn" class="btn-primary">Login</button>
+                    <div id="user-profile" style="display: none;">
+                        <span id="username-display"></span>
+                        <button id="logout-btn" class="icon-btn" title="Sign Out">
+                            <i data-lucide="log-out"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -63,6 +76,53 @@
             </div>
         </div>
     </main>
+
+    <!-- Social Sidebar (Comments) -->
+    <aside id="social-sidebar" class="social-sidebar">
+        <div class="sidebar-header">
+            <button id="close-sidebar" class="icon-btn"><i data-lucide="x"></i></button>
+            <h2 id="sidebar-title">Comments</h2>
+        </div>
+        <div id="comments-container" class="comments-list">
+            <!-- Comments will be injected here -->
+        </div>
+        <div class="comment-input-area">
+            <textarea id="comment-input" placeholder="Broadcast your thoughts..."></textarea>
+            <button id="submit-comment" class="btn-primary">Post Update</button>
+        </div>
+    </aside>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content glass">
+            <div class="modal-header">
+                <h2>Satellite Uplink</h2>
+                <button id="close-modal" class="icon-btn"><i data-lucide="x"></i></button>
+            </div>
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Login</button>
+                <button class="auth-tab" data-tab="signup">Register</button>
+            </div>
+            <form id="auth-form" class="auth-form">
+                <div class="form-group">
+                    <label>Frequency (Email)</label>
+                    <input type="email" id="auth-email" required placeholder="name@example.com">
+                </div>
+                <div class="form-group">
+                    <label>Encryption Key (Password)</label>
+                    <input type="password" id="auth-password" required placeholder="••••••••">
+                </div>
+                <div id="signup-fields" style="display: none;">
+                    <div class="form-group">
+                        <label>Callsign (Username)</label>
+                        <input type="text" id="auth-username" placeholder="CyberAgent">
+                    </div>
+                </div>
+                <button type="submit" id="auth-submit" class="btn-primary">Connect</button>
+                <p id="auth-error" class="error-text"></p>
+            </form>
+        </div>
+    </div>
 
     <!-- Data (Loaded as a global variable to bypass CORS on file://) -->
     <script src="data/data.js"></script>

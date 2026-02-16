@@ -1,106 +1,203 @@
 // Initialize Lucide icons
 lucide.createIcons();
 
-const DATA_URL = 'data/storage.json';
+// Supabase Configuration
+const SUPABASE_URL = 'https://irtvdtwhvoaxhhflerhp.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_1tHVs0poyOY9PcNS9ylTlw_Jk6nlJb2';
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 const GRID = document.getElementById('articles-grid');
 const REFRESH_BTN = document.getElementById('refresh-btn');
 const LAST_UPDATED = document.getElementById('last-updated');
 const FILTER_BTNS = document.querySelectorAll('.filter-btn');
 
+// Auth Elements
+const LOGIN_BTN = document.getElementById('login-btn');
+const LOGOUT_BTN = document.getElementById('logout-btn');
+const AUTH_MODAL = document.getElementById('auth-modal');
+const AUTH_FORM = document.getElementById('auth-form');
+const AUTH_TABS = document.querySelectorAll('.auth-tab');
+const USER_PROFILE = document.getElementById('user-profile');
+const USERNAME_DISPLAY = document.getElementById('username-display');
+
+// Social Elements
+const SIDEBAR = document.getElementById('social-sidebar');
+const COMMENTS_LIST = document.getElementById('comments-container');
+const COMMENT_INPUT = document.getElementById('comment-input');
+const SUBMIT_COMMENT = document.getElementById('submit-comment');
+
 let allArticles = [];
-let savedArticles = JSON.parse(localStorage.getItem('savedArticles') || '[]');
+let currentUser = null;
+let currentArticleId = null;
 
-async function loadData() {
-    try {
-        // fetching from stored global variable (loaded via <script src="data/data.js">)
-        const data = window.DASHBOARD_DATA;
-
-        if (!data) {
-            throw new Error("No data found. Is data/data.js loaded?");
-        }
-
-        allArticles = data.articles || [];
-        // Merge with local saved state just in case
-        allArticles.forEach(a => {
-            if (savedArticles.includes(a.id)) {
-                a.is_saved = true;
-            }
-        });
-
-        updateTimestamp(data.last_updated);
-        renderArticles(allArticles);
-    } catch (error) {
-        console.error("Failed to load data:", error);
-        GRID.innerHTML = `<div class="loading-state"><p>Error loading data. Ensure data/data.js exists.</p></div>`;
+// --- Auth Logic ---
+async function checkUser() {
+    const { data: { user } } = await supabase.auth.getUser();
+    currentUser = user;
+    if (user) {
+        LOGIN_BTN.style.display = 'none';
+        USER_PROFILE.style.display = 'flex';
+        USERNAME_DISPLAY.innerText = user.user_metadata.username || user.email.split('@')[0];
+    } else {
+        LOGIN_BTN.style.display = 'block';
+        USER_PROFILE.style.display = 'none';
     }
 }
 
-function updateTimestamp(isoString) {
-    if (!isoString) return;
-    const date = new Date(isoString);
-    LAST_UPDATED.innerText = `Updated: ${date.toLocaleTimeString()}`;
+LOGIN_BTN.onclick = () => AUTH_MODAL.style.display = 'flex';
+document.getElementById('close-modal').onclick = () => AUTH_MODAL.style.display = 'none';
+
+AUTH_TABS.forEach(tab => {
+    tab.onclick = () => {
+        AUTH_TABS.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('signup-fields').style.display = tab.dataset.tab === 'signup' ? 'block' : 'none';
+        document.getElementById('auth-submit').innerText = tab.dataset.tab === 'signup' ? 'Register' : 'Connect';
+    };
+});
+
+AUTH_FORM.onsubmit = async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('auth-email').value;
+    const password = document.getElementById('auth-password').value;
+    const isSignUp = document.querySelector('.auth-tab.active').dataset.tab === 'signup';
+
+    let result;
+    if (isSignUp) {
+        const username = document.getElementById('auth-username').value;
+        result = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { username } }
+        });
+    } else {
+        result = await supabase.auth.signInWithPassword({ email, password });
+    }
+
+    if (result.error) {
+        document.getElementById('auth-error').innerText = result.error.message;
+    } else {
+        AUTH_MODAL.style.display = 'none';
+        checkUser();
+    }
+};
+
+LOGOUT_BTN.onclick = async () => {
+    await supabase.auth.signOut();
+    checkUser();
+};
+
+// --- Data Loading ---
+async function loadData() {
+    try {
+        const { data, error } = await supabase
+            .from('articles')
+            .select('*')
+            .order('published_at', { ascending: false });
+
+        if (error) throw error;
+
+        allArticles = data;
+        renderArticles(allArticles);
+        LAST_UPDATED.innerText = `Uplink Active: ${new Date().toLocaleTimeString()}`;
+    } catch (error) {
+        console.error("Failed to load data:", error);
+        GRID.innerHTML = `<div class="loading-state"><p>Satellite connection lost. Retrying...</p></div>`;
+    }
 }
 
 function renderArticles(articles) {
     GRID.innerHTML = '';
-
-    if (articles.length === 0) {
-        GRID.innerHTML = `<div class="loading-state"><p>No articles found for this filter.</p></div>`;
-        return;
-    }
-
     articles.forEach(article => {
         const card = document.createElement('div');
         card.className = 'card';
-        const isSaved = savedArticles.includes(article.id);
 
-        // Format Date
         const date = new Date(article.published_at);
         const timeAgo = getTimeAgo(date);
 
-        // Visual Source Name
-        let sourceName = article.source;
-        if (sourceName === 'theverge') sourceName = 'The Verge';
-        if (sourceName === 'wired') sourceName = 'Wired';
-        if (sourceName === 'techcrunch') sourceName = 'TechCrunch';
-        if (sourceName === 'therundown') sourceName = 'The Rundown';
-
-        // Image Logic
-        let imageHtml = '';
-        if (article.image_url) {
-            imageHtml = `<div class="card-image" style="background-image: url('${article.image_url}');"></div>`;
-        } else {
-            // Placeholder Pattern
-            imageHtml = `<div class="card-image placeholder"><span>AI</span></div>`;
-        }
+        const imageHtml = article.image_url
+            ? `<div class="card-image" style="background-image: url('${article.image_url}');"></div>`
+            : `<div class="card-image placeholder"><span>AI</span></div>`;
 
         card.innerHTML = `
             ${imageHtml}
             <div class="card-content">
                 <div class="card-meta">
-                    <span class="source-tag">${sourceName}</span>
+                    <span class="source-tag">${article.source.toUpperCase()}</span>
                     <span class="date">${timeAgo}</span>
                 </div>
                 <h3 class="card-title">
                     <a href="${article.url}" target="_blank">${article.title}</a>
                 </h3>
                 <div class="card-footer">
-                    <button class="save-btn ${isSaved ? 'saved' : ''}" onclick="toggleSave('${article.id}')">
-                        <i data-lucide="heart"></i>
-                    </button>
+                    <div class="social-indicator" onclick="openSocial('${article.id}', '${article.title}')">
+                        <i data-lucide="message-square"></i>
+                        <span>${article.comment_count || 0}</span>
+                    </div>
                     <a href="${article.url}" target="_blank" class="read-link">Read Case Study &rarr;</a>
                 </div>
             </div>
         `;
         GRID.appendChild(card);
     });
-
-    // Re-init icons for new DOM elements
     lucide.createIcons();
 }
 
+// --- Social System ---
+async function openSocial(articleId, title) {
+    currentArticleId = articleId;
+    document.getElementById('sidebar-title').innerText = title;
+    SIDEBAR.classList.add('open');
+    loadComments(articleId);
+}
+
+document.getElementById('close-sidebar').onclick = () => SIDEBAR.classList.remove('open');
+
+async function loadComments(articleId) {
+    COMMENTS_LIST.innerHTML = '<p>Retrieving logs...</p>';
+    const { data, error } = await supabase
+        .from('comments')
+        .select('*, profiles(username)')
+        .eq('article_id', articleId)
+        .order('created_at', { ascending: true });
+
+    if (error) return;
+
+    COMMENTS_LIST.innerHTML = data.length ? '' : '<p>No data found in this sector.</p>';
+    data.forEach(comment => {
+        const div = document.createElement('div');
+        div.className = 'comment-item';
+        div.innerHTML = `
+            <div class="comment-header">
+                <span class="comment-user">${comment.profiles?.username || 'Unknown Agent'}</span>
+                <span class="comment-date">${getTimeAgo(new Date(comment.created_at))}</span>
+            </div>
+            <div class="comment-content">${comment.content}</div>
+        `;
+        COMMENTS_LIST.appendChild(div);
+    });
+}
+
+SUBMIT_COMMENT.onclick = async () => {
+    if (!currentUser) return alert("You must uplink (login) to post updates.");
+    const content = COMMENT_INPUT.value.trim();
+    if (!content) return;
+
+    const { error } = await supabase.from('comments').insert({
+        article_id: currentArticleId,
+        user_id: currentUser.id,
+        content: content
+    });
+
+    if (!error) {
+        COMMENT_INPUT.value = '';
+        loadComments(currentArticleId);
+    }
+};
+
 function getTimeAgo(date) {
     const seconds = Math.floor((new Date() - date) / 1000);
+    if (seconds < 60) return "just now";
     let interval = seconds / 3600;
     if (interval > 1) return Math.floor(interval) + "h ago";
     interval = seconds / 60;
@@ -108,48 +205,17 @@ function getTimeAgo(date) {
     return Math.floor(seconds) + "s ago";
 }
 
-window.toggleSave = function (id) {
-    const index = savedArticles.indexOf(id);
-    if (index === -1) {
-        savedArticles.push(id);
-    } else {
-        savedArticles.splice(index, 1);
-    }
-    localStorage.setItem('savedArticles', JSON.stringify(savedArticles));
+// --- Global Initialization ---
+checkUser();
+loadData();
 
-    // Update UI state immediately without full re-render
-    // But for filter consistency, we might want to re-render if in "Saved" view
-    // For now, just reload data merge to keep it simple
-    loadData().then(() => {
-        // Re-apply current filter
-        const activeFilter = document.querySelector('.filter-btn.active').dataset.filter;
-        applyFilter(activeFilter);
-    });
-}
-
-function applyFilter(filter) {
-    let filtered = allArticles;
-    if (filter === 'saved') {
-        filtered = allArticles.filter(a => savedArticles.includes(a.id));
-    } else if (filter !== 'all') {
-        filtered = allArticles.filter(a => a.source === filter);
-    }
-    renderArticles(filtered);
-}
-
-// Event Listeners
-REFRESH_BTN.addEventListener('click', loadData);
-
+// Refresh and Filters
+REFRESH_BTN.onclick = loadData;
 FILTER_BTNS.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        // UI
+    btn.onclick = (e) => {
         FILTER_BTNS.forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
-
-        // Logic
-        applyFilter(e.target.dataset.filter);
-    });
+        const filter = e.target.dataset.filter;
+        renderArticles(filter === 'all' ? allArticles : allArticles.filter(a => a.source === filter));
+    };
 });
-
-// Init
-loadData();
