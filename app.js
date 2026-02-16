@@ -27,6 +27,7 @@ const COMMENT_INPUT = document.getElementById('comment-input');
 const SUBMIT_COMMENT = document.getElementById('submit-comment');
 
 let allArticles = [];
+let savedArticleIds = new Set();
 let currentUser = null;
 let currentArticleId = null;
 
@@ -98,6 +99,16 @@ async function loadData() {
         if (error) throw error;
 
         allArticles = data;
+
+        // Load saved IDs if user is logged in
+        if (currentUser) {
+            const { data: savedData } = await supabaseClient
+                .from('user_saved_articles')
+                .select('article_id')
+                .eq('user_id', currentUser.id);
+            savedArticleIds = new Set(savedData?.map(s => s.article_id) || []);
+        }
+
         renderArticles(allArticles);
         LAST_UPDATED.innerText = `Uplink Active: ${new Date().toLocaleTimeString()}`;
     } catch (error) {
@@ -107,19 +118,29 @@ async function loadData() {
 }
 
 function renderArticles(articles) {
+    if (!articles || articles.length === 0) {
+        GRID.innerHTML = `
+            <div class="loading-state">
+                <i data-lucide="alert-triangle" style="width: 48px; height: 48px; margin-bottom: 1rem; color: var(--accent-sec);"></i>
+                <p>No signal detected in this sector.</p>
+                <p style="font-size: 1rem; margin-top: 1rem; color: var(--text-muted);">The scraper may need a manual kickstart.</p>
+            </div>
+        `;
+        lucide.createIcons();
+        return;
+    }
     GRID.innerHTML = '';
-    articles.forEach(article => {
-        const card = document.createElement('div');
-        card.className = 'card';
+    const card = document.createElement('div');
+    card.className = 'card';
 
-        const date = new Date(article.published_at);
-        const timeAgo = getTimeAgo(date);
+    const date = new Date(article.published_at);
+    const timeAgo = getTimeAgo(date);
 
-        const imageHtml = article.image_url
-            ? `<div class="card-image" style="background-image: url('${article.image_url}');"></div>`
-            : `<div class="card-image placeholder"><span>AI</span></div>`;
+    const imageHtml = article.image_url
+        ? `<div class="card-image" style="background-image: url('${article.image_url}');"></div>`
+        : `<div class="card-image placeholder"><span>AI</span></div>`;
 
-        card.innerHTML = `
+    card.innerHTML = `
             ${imageHtml}
             <div class="card-content">
                 <div class="card-meta">
@@ -138,9 +159,9 @@ function renderArticles(articles) {
                 </div>
             </div>
         `;
-        GRID.appendChild(card);
-    });
-    lucide.createIcons();
+    GRID.appendChild(card);
+});
+lucide.createIcons();
 }
 
 // --- Social System ---
@@ -215,7 +236,6 @@ FILTER_BTNS.forEach(btn => {
     btn.onclick = (e) => {
         FILTER_BTNS.forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
-        const filter = e.target.dataset.filter;
-        renderArticles(filter === 'all' ? allArticles : allArticles.filter(a => a.source === filter));
+        applyFilter(e.target.dataset.filter);
     };
 });

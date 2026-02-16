@@ -208,6 +208,12 @@
     border-color: var(--accent);
 }
 
+.social-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
 #user-profile {
     display: flex;
     align-items: center;
