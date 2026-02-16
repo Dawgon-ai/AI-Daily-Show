@@ -130,17 +130,20 @@ function renderArticles(articles) {
         return;
     }
     GRID.innerHTML = '';
-    const card = document.createElement('div');
-    card.className = 'card';
+    articles.forEach(article => {
+        const card = document.createElement('div');
+        card.className = 'card';
 
-    const date = new Date(article.published_at);
-    const timeAgo = getTimeAgo(date);
+        const date = new Date(article.published_at);
+        const timeAgo = getTimeAgo(date);
 
-    const imageHtml = article.image_url
-        ? `<div class="card-image" style="background-image: url('${article.image_url}');"></div>`
-        : `<div class="card-image placeholder"><span>AI</span></div>`;
+        const imageHtml = article.image_url
+            ? `<div class="card-image" style="background-image: url('${article.image_url}');"></div>`
+            : `<div class="card-image placeholder"><span>AI</span></div>`;
 
-    card.innerHTML = `
+        const isSaved = savedArticleIds.has(article.id);
+
+        card.innerHTML = `
             ${imageHtml}
             <div class="card-content">
                 <div class="card-meta">
@@ -151,17 +154,47 @@ function renderArticles(articles) {
                     <a href="${article.url}" target="_blank">${article.title}</a>
                 </h3>
                 <div class="card-footer">
-                    <div class="social-indicator" onclick="openSocial('${article.id}', '${article.title}')">
-                        <i data-lucide="message-square"></i>
-                        <span>${article.comment_count || 0}</span>
+                    <div class="social-actions">
+                        <div class="social-indicator" onclick="openSocial('${article.id}', '${article.title}')">
+                            <i data-lucide="message-square"></i>
+                            <span>${article.comment_count || 0}</span>
+                        </div>
+                        <button class="save-btn ${isSaved ? 'saved' : ''}" onclick="toggleSave('${article.id}')">
+                            <i data-lucide="heart"></i>
+                        </button>
                     </div>
-                    <a href="${article.url}" target="_blank" class="read-link">Read Case Study &rarr;</a>
+                    <a href="${article.url}" target="_blank" class="read-link">Read &rarr;</a>
                 </div>
             </div>
         `;
-    GRID.appendChild(card);
-});
-lucide.createIcons();
+        GRID.appendChild(card);
+    });
+    lucide.createIcons();
+}
+
+async function toggleSave(articleId) {
+    if (!currentUser) return alert("Uplink required to save archives.");
+
+    if (savedArticleIds.has(articleId)) {
+        await supabaseClient.from('user_saved_articles').delete().eq('user_id', currentUser.id).eq('article_id', articleId);
+        savedArticleIds.delete(articleId);
+    } else {
+        await supabaseClient.from('user_saved_articles').insert({ user_id: currentUser.id, article_id: articleId });
+        savedArticleIds.add(articleId);
+    }
+
+    const activeFilter = document.querySelector('.filter-btn.active').dataset.filter;
+    applyFilter(activeFilter);
+}
+
+function applyFilter(filter) {
+    let filtered = allArticles;
+    if (filter === 'saved') {
+        filtered = allArticles.filter(a => savedArticleIds.has(a.id));
+    } else if (filter !== 'all') {
+        filtered = allArticles.filter(a => a.source === filter);
+    }
+    renderArticles(filtered);
 }
 
 // --- Social System ---
