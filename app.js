@@ -32,8 +32,7 @@ let currentUser = null;
 let currentArticleId = null;
 
 // --- Auth Logic ---
-async function checkUser() {
-    const { data: { user } } = await supabaseClient.auth.getUser();
+function updateUserUI(user) {
     currentUser = user;
     if (user) {
         LOGIN_BTN.style.display = 'none';
@@ -42,8 +41,29 @@ async function checkUser() {
     } else {
         LOGIN_BTN.style.display = 'block';
         USER_PROFILE.style.display = 'none';
+        savedArticleIds = new Set();
     }
 }
+
+// Global Auth Listener
+supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    const user = session?.user || null;
+    updateUserUI(user);
+
+    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+        // Load saved IDs instantly when user signs in or connects
+        const { data: savedData } = await supabaseClient
+            .from('user_saved_articles')
+            .select('article_id')
+            .eq('user_id', user.id);
+        savedArticleIds = new Set(savedData?.map(s => s.article_id) || []);
+        renderArticles(allArticles);
+    }
+
+    if (event === 'SIGNED_OUT') {
+        renderArticles(allArticles);
+    }
+});
 
 LOGIN_BTN.onclick = () => AUTH_MODAL.style.display = 'flex';
 document.getElementById('close-modal').onclick = () => AUTH_MODAL.style.display = 'none';
@@ -78,14 +98,24 @@ AUTH_FORM.onsubmit = async (e) => {
     if (result.error) {
         document.getElementById('auth-error').innerText = result.error.message;
     } else {
-        AUTH_MODAL.style.display = 'none';
-        checkUser();
+        if (isSignUp) {
+            AUTH_FORM.innerHTML = `
+                <div class="success-state" style="text-align: center; padding: 2rem;">
+                    <i data-lucide="mail" style="width: 48px; height: 48px; color: var(--accent-sec); margin-bottom: 1rem;"></i>
+                    <h3 style="color: white; margin-bottom: 0.5rem;">Transmission Sent</h3>
+                    <p style="color: var(--text-muted);">Please check your frequency (email) to confirm your uplink.</p>
+                    <button onclick="location.reload()" class="btn-primary" style="margin-top: 1.5rem;">Acknowledge</button>
+                </div>
+            `;
+            lucide.createIcons();
+        } else {
+            AUTH_MODAL.style.display = 'none';
+        }
     }
 };
 
 LOGOUT_BTN.onclick = async () => {
     await supabaseClient.auth.signOut();
-    checkUser();
 };
 
 // --- Data Loading ---
@@ -99,16 +129,6 @@ async function loadData() {
         if (error) throw error;
 
         allArticles = data;
-
-        // Load saved IDs if user is logged in
-        if (currentUser) {
-            const { data: savedData } = await supabaseClient
-                .from('user_saved_articles')
-                .select('article_id')
-                .eq('user_id', currentUser.id);
-            savedArticleIds = new Set(savedData?.map(s => s.article_id) || []);
-        }
-
         renderArticles(allArticles);
         LAST_UPDATED.innerText = `Uplink Active: ${new Date().toLocaleTimeString()}`;
     } catch (error) {
@@ -260,7 +280,6 @@ function getTimeAgo(date) {
 }
 
 // --- Global Initialization ---
-checkUser();
 loadData();
 
 // Refresh and Filters
